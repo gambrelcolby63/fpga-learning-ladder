@@ -29,7 +29,8 @@ status=$([ $started -eq 1 ] && echo "started" || echo "not started (skeleton)")
 echo "== $proj: $status | lint $lint_res | tests $test_res ($passed/$total)"
 cat build/summary.txt 2>/dev/null
 if [ $lint_rc -ne 0 ]; then echo "--- lint output (tail)"; tail -n 30 build/lint.log; fi
-if [ $test_rc -ne 0 ]; then echo "--- most common failures"; grep -E "AssertionError|Error:" build/test.log | sort | uniq -c | sort -rn | head -n 10; fi
+if [ $test_rc -ne 0 ]; then echo "--- most common failures"; grep -E "AssertionError|Error:|error:|not found|No module" build/test.log | sort | uniq -c | sort -rn | head -n 10; fi
+if [ "$total" -eq 0 ]; then echo "::warning title=$proj::no test results at all -- the simulation did not build/run (see build/test.log)"; fi
 
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
   {
