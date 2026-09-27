@@ -1,9 +1,11 @@
 # FPGA Learning Ladder
 
-Four FPGA projects, from "blink a serial port" to "parse a UDP market-data frame". Together they
-form a ladder toward **low-latency / HFT FPGA engineering**. Each rung comes with a written
-spec, a skeleton module with the exact port list, and a thorough **cocotb** testbench with a
-Python reference model. **The RTL is the part I write myself.**
+Five FPGA projects, from "blink a serial port" to "parse a UDP market-data frame" and "filter a
+radar signal in fixed point". Rungs 01–04 form a ladder toward **low-latency / HFT FPGA
+engineering**, and rung 05 adds the **fixed-point DSP** at the core of **defense radar and radio**
+FPGA work. Each rung comes with a written spec, a skeleton module with the exact port list, and
+a thorough **cocotb** testbench with a Python reference model. **The RTL is the part I write
+myself.**
 
 | # | Project | You build | New concepts |
 |---|---|---|---|
@@ -11,6 +13,13 @@ Python reference model. **The RTL is the part I write myself.**
 | 02 | [`02-async-fifo`](02-async-fifo/) | dual-clock FIFO | clock-domain crossing, metastability, Gray code, full/empty with stale pointers |
 | 03 | [`03-crc32`](03-crc32/) | Ethernet CRC-32 over 64-bit AXI-Stream, one beat/clock | AXI-Stream, `tkeep`, parallel CRC, reflection, residue check |
 | 04 | [`04-eth-parser`](04-eth-parser/) | Ethernet/IPv4/UDP header parser + payload realigner | protocol parsing across beat boundaries, realignment, backpressure. The stepping stone to ITCH/MoldUDP64 |
+| 05 | [`05-fir-filter`](05-fir-filter/) | N-tap fixed-point FIR filter (Q1.15), bit-exact with a numpy model | signed arithmetic, Q formats, coefficient quantization, bit growth, rounding and saturation, pipelined multiply-accumulate on DSP slices, constant latency. **The defense/radar-relevant project** |
+
+> **Defense / radar note.** Project 05 is the one to point at for radar, radio and EW FPGA
+> roles: digital down-converters, channelizers, beamformers and pulse compression (matched
+> filtering) are all fixed-point FIR filters on DSP slices. It stands on its own (it needs
+> valid/ready from 01–04, nothing protocol-specific), so if radar/DSP is your target you can
+> do it right after 03.
 
 > **About this repo / honesty note.** The specs, testbenches, skeleton files, scripts and CI
 > are a provided scaffold (generated with AI assistance). The scaffold intentionally contains
@@ -22,7 +31,8 @@ Python reference model. **The RTL is the part I write myself.**
 
 ## Setup
 
-You need: Verilator **≥ 5.036** (cocotb 2.x requirement), Python 3.10+, cocotb 2.1, GNU make.
+You need: Verilator **≥ 5.036** (cocotb 2.x requirement), Python 3.10+, cocotb 2.1, numpy
+(project 05's golden model), GNU make.
 Optional: Icarus Verilog (second simulator), Yosys (synthesis experiments), GTKWave or
 [Surfer](https://surfer-project.org/) (waveform viewer).
 
@@ -31,7 +41,7 @@ Optional: Icarus Verilog (second simulator), Yosys (synthesis experiments), GTKW
 ```bash
 git clone https://github.com/gambrelcolby63/fpga-learning-ladder.git
 cd fpga-learning-ladder
-./setup.sh          # apt packages, Verilator 5.052 from source -> /opt/verilator-5.052, .venv with cocotb
+./setup.sh          # apt packages, Verilator 5.052 from source -> /opt/verilator-5.052, .venv with cocotb + numpy
 ```
 
 Distro Verilator packages are too old for cocotb 2.x (Ubuntu 24.04 ships 5.020), so the script
@@ -67,7 +77,9 @@ make test     # builds and runs; every test FAILS on the skeleton: expected
 
 ## How to work through the ladder
 
-Do the projects **in order**. Each one uses ideas from the previous one. For each project:
+Do the projects **in order** (01 → 02 → 03 → 04 → 05). Each one uses ideas from the previous
+one. The exception is 05 (FIR filter), which only needs valid/ready and can come right after
+03 if you're aiming for radar/DSP work. For each project:
 
 1. **Read the project README end to end.** Draw the block diagram and a timing diagram on
    paper before writing any RTL.
@@ -129,7 +141,7 @@ runs its lint and tests and reports the numbers, but that job stays green. When 
 project, delete the marker from its files. From then on that job **fails** unless lint is clean
 and all tests pass. So:
 
-* a fresh clone → all four jobs green, all reported as "not started";
+* a fresh clone → all five jobs green, all reported as "not started";
 * you're halfway through project 02 → job 02 is red, which is honest;
 * you finish project 02 → job 02 is green and enforced.
 
@@ -173,7 +185,17 @@ Copy this into your own notes or tick it here in commits.
 - [ ] Payload realignment working, all tests pass, lint clean
 - [ ] Measured stall cycles / latency (`test_throughput` log)
 - [ ] Answered the interview questions
-- [ ] Stretch goal(s) done: ______ (MoldUDP64/ITCH is the natural next project)
+- [ ] Stretch goal(s) done: ______ (MoldUDP64/ITCH is the natural next HFT project)
+- Hints used: L1 ☐ L2 ☐ L3 ☐ L4 ☐
+
+### 05-fir-filter
+- [ ] Computed impulse, step and a -1.0 × -1.0 output by hand with `fir_model.py`
+- [ ] Impulse response correct (tap order), then rounding + saturation bit-exact
+- [ ] Pipelined with valid/ready, lint clean, all tests pass (NTAPS 16, 5, 32)
+- [ ] Wrote down my latency L and where every cycle comes from (matches the test log)
+- [ ] Synthesized it and counted DSP slices (Yosys `synth_xilinx` or Vivado)
+- [ ] Answered the interview questions
+- [ ] Stretch goal(s) done: ______ (symmetric pre-adder, decimation, or a matched filter)
 - Hints used: L1 ☐ L2 ☐ L3 ☐ L4 ☐
 
 ---
@@ -182,7 +204,10 @@ Copy this into your own notes or tick it here in commits.
 
 Good: *"Implemented a dual-clock async FIFO (Gray-code pointers, 2-flop synchronizers) and a
 64-bit AXI-Stream Ethernet/IPv4/UDP parser in SystemVerilog; verified against randomized cocotb
-testbenches (Verilator), lint-clean under `-Wall`."* Link the repo.
+testbenches (Verilator), lint-clean under `-Wall`."* Or, for radar/DSP roles: *"Designed a
+pipelined 16-tap Q1.15 FIR filter (full-precision accumulator, round-half-up + saturation,
+valid/ready backpressure, fixed N-cycle latency), bit-exact against a numpy model in cocotb."*
+Link the repo.
 
 Be ready to say which parts you wrote (the RTL, plus any tests you added) and which were
 provided (the specs and testbenches). Interviewers respect that, and they *will* ask you to
@@ -194,7 +219,7 @@ explain your RTL line by line.
 
 ```
 setup.sh                 toolchain setup (Ubuntu/Debian/WSL)
-requirements.txt         Python deps (cocotb)
+requirements.txt         Python deps (cocotb, numpy)
 Makefile                 top-level: test / lint / status across all projects
 common/run.py            builds + runs one cocotb test module (used by every project Makefile)
 common/project.mk        shared make targets: test, lint, wave, clean
@@ -212,8 +237,9 @@ NN-name/
 
 * **`Verilator 5.0xx found; cocotb 2.x needs >= 5.036`**: run `./setup.sh`, or set
   `VERILATOR_BIN_DIR` to a newer Verilator's `bin/`.
-* **`No module named cocotb`**: the Makefiles use `.venv/bin/python` if it exists, otherwise
-  `python3`. Create the venv (setup.sh does), or pass `PYTHON=/path/to/python`.
+* **`No module named cocotb`** (or `numpy`): the Makefiles use `.venv/bin/python` if it exists,
+  otherwise `python3`. Create the venv (setup.sh does), or pass `PYTHON=/path/to/python`.
+  After pulling project 05, re-run `.venv/bin/pip install -r requirements.txt` for numpy.
 * **A test hangs**: every test has a simulated-time timeout, so it will fail eventually. Run
   it alone with `TESTCASE=` and look at the waveform.
 * **`internal signal 'wptr_gray' not found`** (project 02): the spec requires those exact register names.

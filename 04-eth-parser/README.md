@@ -197,7 +197,7 @@ separately, in order, plus AXI-Stream protocol rules on both outputs.
   Then think about **cut-through**: start forwarding payload before the frame's FCS is checked.
 * **MoldUDP64 + ITCH:** add a stage after this one that parses the MoldUDP64 header (session,
   sequence number, message count) and splits the payload into ITCH messages using the 2-byte
-  length prefixes. That's the natural project 05.
+  length prefixes. That's the natural next step on the HFT track.
 * 802.1Q VLAN support (one tag): the IPv4 header moves by 4 bytes.
 * Destination filtering: only forward frames to a configured multicast MAC / IP / UDP port.
 * Check the IPv4 header checksum (RFC 1071) and drop bad headers. Drop IP fragments.

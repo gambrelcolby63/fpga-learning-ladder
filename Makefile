@@ -3,7 +3,7 @@
 #   make lint     lint every project
 #   make status   lint + test per project, CI-style, one line each
 #   make clean
-PROJECTS := 01-uart 02-async-fifo 03-crc32 04-eth-parser
+PROJECTS := 01-uart 02-async-fifo 03-crc32 04-eth-parser 05-fir-filter
 
 .PHONY: test lint status clean
 test:

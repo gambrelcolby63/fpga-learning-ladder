@@ -38,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: [01-uart, 02-async-fifo, 03-crc32, 04-eth-parser]
+        project: [01-uart, 02-async-fifo, 03-crc32, 04-eth-parser, 05-fir-filter]
     steps:
       - uses: actions/checkout@v4
       - name: Restore Verilator

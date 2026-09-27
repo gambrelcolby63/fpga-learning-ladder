@@ -37,7 +37,7 @@ if [ "${SKIP_VERILATOR:-0}" != 1 ] && ! have_ok_verilator; then
   rm -rf "$tmp"
 fi
 
-echo "==> Python venv (.venv) with cocotb"
+echo "==> Python venv (.venv) with cocotb + numpy"
 python3 -m venv .venv
 .venv/bin/pip install -q --upgrade pip
 .venv/bin/pip install -q -r requirements.txt
