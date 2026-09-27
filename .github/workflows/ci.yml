@@ -1,0 +1,60 @@
+name: ladder
+
+# Runs `make lint` and `make test` for every project, one job per project.
+# Projects that still contain the LADDER-SKELETON marker are reported but never fail the run.
+# Remove the marker when you start a project, and CI then enforces lint + tests for it.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  VERILATOR_VERSION: v5.052   # cocotb 2.x needs >= 5.036; Ubuntu 24.04 ships 5.020
+
+jobs:
+  verilator:
+    name: build Verilator (cached)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Cache Verilator
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: ~/verilator
+          key: verilator-${{ env.VERILATOR_VERSION }}-ubuntu-24.04
+      - name: Build Verilator from source
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git make autoconf g++ flex bison libfl2 libfl-dev help2man perl python3 zlib1g-dev liblz4-dev ccache
+          git clone --depth 1 --branch "$VERILATOR_VERSION" https://github.com/verilator/verilator /tmp/verilator
+          cd /tmp/verilator && autoconf && ./configure --prefix="$HOME/verilator" && make -j"$(nproc)" && make install
+          "$HOME/verilator/bin/verilator" --version
+
+  project:
+    name: ${{ matrix.project }}
+    needs: verilator
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [01-uart, 02-async-fifo, 03-crc32, 04-eth-parser]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore Verilator
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/verilator
+          key: verilator-${{ env.VERILATOR_VERSION }}-ubuntu-24.04
+          fail-on-cache-miss: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Python deps
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -r requirements.txt
+      - name: Lint + test
+        run: |
+          export VERILATOR_BIN_DIR="$HOME/verilator/bin"
+          scripts/ci_project.sh ${{ matrix.project }}
